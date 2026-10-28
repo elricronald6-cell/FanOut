@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FanOut — two-level referral attribution on BOT Chain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.9.0/ethers.umd.min.js"></script>
+<style>
+/* ============================================================================
+   KINETIC / MOTION-FIRST TYPOGRAPHY — the type is the layout. Oversized
+   display rows, running marquees, words that move on hover. No cards, no
+   panels, no borders: structure comes from scale and motion alone.
+   ========================================================================== */
+:root{
+  --black:#0c0c0e;
+  --bone:#f2f0ea;
+  --acid:#c8ff2e;
+  --dim:#6f6f78;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--black);color:var(--bone);
+  font-family:'Archivo',system-ui,sans-serif;font-size:16px;line-height:1.5;
+  overflow-x:hidden;
+}
+.display{font-family:'Anton',Impact,sans-serif;font-weight:400;text-transform:uppercase;
+  letter-spacing:-.01em;margin:0;line-height:.84}
+
+/* ---------- running marquees ---------- */
+.marquee{overflow:hidden;white-space:nowrap;border-top:1px solid #1e1e22;border-bottom:1px solid #1e1e22;
+  background:var(--black);padding:9px 0}
+.marquee.acid{background:var(--acid);border-color:var(--acid)}
+.marquee .track{display:inline-block;animation:slide 26s linear infinite}
+.marquee.rev .track{animation-direction:reverse}
+.marquee span{font-family:'Anton',sans-serif;text-transform:uppercase;font-size:15px;letter-spacing:.12em;
+  padding:0 26px;color:var(--dim)}
+.marquee.acid span{color:#13170a}
+@keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.marquee:hover .track{animation-play-state:paused}
+
+.wrap{padding:0 clamp(18px,4vw,64px)}
+
+/* ---------- hero: the name fills the viewport width ---------- */
+.hero{padding:clamp(40px,7vw,86px) 0 clamp(26px,4vw,52px)}
+.hero h1{font-size:clamp(78px,19vw,280px);line-height:.78}
+.hero h1 .out{color:var(--acid);display:inline-block;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.hero:hover h1 .out{transform:translateX(min(5vw,64px))}
+.hero .sub{max-width:40ch;font-size:clamp(17px,2vw,22px);color:#b9b8b2;margin-top:22px}
+
+/* ---------- status as a type row, not chips ---------- */
+.status{display:flex;flex-wrap:wrap;gap:0 clamp(20px,4vw,56px);align-items:baseline;
+  padding:22px 0;border-top:1px solid #1e1e22}
+.status i{font-style:normal;font-family:'Anton',sans-serif;text-transform:uppercase;
+  font-size:clamp(14px,1.5vw,19px);letter-spacing:.06em;color:var(--dim)}
+.status i b{color:var(--bone);font-weight:400}
+.status i.live b{color:var(--acid)}
+
+/* ---------- a word that behaves as a button ---------- */
+.word{background:none;border:none;padding:0;cursor:pointer;color:var(--bone);
+  font-family:'Anton',sans-serif;text-transform:uppercase;letter-spacing:.02em;
+  font-size:clamp(26px,4.4vw,56px);line-height:.9;transition:.22s cubic-bezier(.2,.8,.2,1);
+  position:relative}
+.word::after{content:"";position:absolute;left:0;right:0;bottom:.08em;height:.07em;background:var(--acid);
+  transform:scaleX(0);transform-origin:left;transition:transform .26s}
+.word:hover:not(:disabled){color:var(--acid);letter-spacing:.06em}
+.word:hover:not(:disabled)::after{transform:scaleX(1)}
+.word:disabled{color:#3a3a40;cursor:not-allowed}
+.word.sm{font-size:clamp(15px,1.7vw,21px)}
+.word.acid{color:var(--acid)}
+.words{display:flex;gap:clamp(18px,3vw,44px);flex-wrap:wrap;align-items:baseline;padding:14px 0 0}
+
+/* ---------- campaign rows: giant type, no container ---------- */
+.rows{padding:clamp(26px,4vw,52px) 0 0}
+.row{padding:clamp(22px,3vw,40px) 0;border-top:1px solid #1e1e22;position:relative}
+.row:hover{background:linear-gradient(90deg, rgba(200,255,46,.07), transparent 60%)}
+.row .name{font-size:clamp(40px,7.6vw,112px);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.row:hover .name{transform:translateX(clamp(8px,1.4vw,22px))}
+.row .name span{color:var(--dim)}
+.row .meta{display:flex;flex-wrap:wrap;gap:0 clamp(16px,3vw,44px);align-items:baseline;margin-top:12px}
+.row .meta em{font-style:normal;font-family:'Anton',sans-serif;text-transform:uppercase;
+  font-size:clamp(13px,1.4vw,17px);letter-spacing:.08em;color:var(--dim)}
+.row .meta em b{color:var(--bone);font-weight:400}
+
+/* the two commission levels, set enormous */
+.levels{display:flex;gap:clamp(24px,5vw,70px);align-items:flex-end;margin-top:18px;flex-wrap:wrap}
+.lv{line-height:.8}
+.lv b{font-family:'Anton',sans-serif;font-size:clamp(46px,8vw,104px);display:block;font-weight:400}
+.lv.one b{color:var(--acid)}
+.lv.two b{color:var(--bone)}
+.lv span{font-family:'Anton',sans-serif;text-transform:uppercase;font-size:12.5px;letter-spacing:.2em;
+  color:var(--dim);display:block;margin-top:10px}
+.lv.rest b{color:var(--dim)}
+
+/* the upline/downline, drawn as a line of names that slides */
+.chain{margin-top:22px;overflow:hidden;white-space:nowrap}
+.chain .hop{font-family:'Anton',sans-serif;text-transform:uppercase;font-size:clamp(14px,1.6vw,20px);
+  letter-spacing:.06em;color:var(--dim)}
+.chain .hop.you{color:var(--acid)}
+.chain .arr{color:#33333a;padding:0 12px}
+
+.rowacts{display:flex;gap:clamp(14px,2.4vw,34px);flex-wrap:wrap;align-items:baseline;margin-top:20px}
+.inlinein{background:transparent;border:none;border-bottom:2px solid #2a2a31;color:var(--bone);
+  font-family:'Anton',sans-serif;text-transform:uppercase;font-size:clamp(16px,2vw,24px);
+  padding:2px 4px;width:clamp(110px,14vw,180px);letter-spacing:.03em}
+.inlinein:focus{outline:none;border-bottom-color:var(--acid)}
+.inlinein::placeholder{color:#3a3a42}
+
+/* ---------- the create block ---------- */
+.create{padding:clamp(40px,6vw,86px) 0 clamp(50px,7vw,100px);border-top:1px solid #1e1e22;margin-top:46px}
+.create h2{font-size:clamp(40px,8vw,118px)}
+.create p{max-width:52ch;color:#b9b8b2;margin:16px 0 0;font-size:17.5px}
+.fieldrow{display:flex;gap:clamp(18px,3vw,46px);flex-wrap:wrap;align-items:baseline;margin-top:30px}
+.field label{display:block;font-family:'Anton',sans-serif;text-transform:uppercase;font-size:12px;
+  letter-spacing:.2em;color:var(--dim);margin-bottom:6px}
+
+.nothing{padding:clamp(40px,6vw,80px) 0;font-family:'Anton',sans-serif;text-transform:uppercase;
+  font-size:clamp(22px,3.4vw,46px);color:#2d2d34;line-height:1.1}
+
+#toast{position:fixed;left:0;right:0;bottom:0;transform:translateY(110%);
+  background:var(--acid);color:#13170a;padding:14px clamp(18px,4vw,64px);
+  font-family:'Anton',sans-serif;text-transform:uppercase;font-size:clamp(14px,1.8vw,20px);
+  letter-spacing:.06em;transition:transform .26s;z-index:60}
+#toast.show{transform:translateY(0)}
+#toast.bad{background:#ff4a3d;color:#fff}
+
+/* ===== BOT Chain ecosystem footer (KPI 5) ===== */
+footer.bc-foot{display:block;background:#0c0c0e;border-top:1px solid #1e1e22}
+.bc-foot-grid{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:26px;
+  padding:26px clamp(18px,4vw,64px);border-bottom:1px solid #1e1e22}
+@media(max-width:720px){.bc-foot-grid{grid-template-columns:1fr;gap:16px}}
+.bc-foot .bc-logo{border:1px solid #1e1e22;padding:10px 14px}
+.bc-foot .bc-id{font-family:'Anton',sans-serif;text-transform:uppercase;font-size:26px;
+  letter-spacing:.01em;color:#f2f0ea;line-height:.9}
+.bc-foot .bc-id small{display:block;font-family:'Anton',sans-serif;font-size:11px;font-weight:400;
+  letter-spacing:.22em;color:#6f6f78;margin-top:8px}
+.bc-foot .bc-links{display:flex;gap:clamp(18px,3vw,38px);flex-wrap:wrap}
+.bc-foot .bc-links a{font-family:'Anton',sans-serif;text-transform:uppercase;
+  font-size:clamp(16px,2vw,24px);letter-spacing:.02em;color:#f2f0ea;text-decoration:none;
+  transition:.2s cubic-bezier(.2,.8,.2,1)}
+.bc-foot .bc-links a:hover{color:#c8ff2e;letter-spacing:.07em}
+.bc-foot .bc-meta{font-family:'Anton',sans-serif;text-transform:uppercase;font-size:11px;
+  letter-spacing:.2em;color:#6f6f78;padding:14px clamp(18px,4vw,64px);
+  display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.bc-foot .bc-meta b{color:#c8ff2e;font-weight:400}
+</style>
+</head>
+<body>
+
+<div class="marquee acid">
+  <div class="track">
+    <span>attribution fixed on first join</span><span>·</span><span>two levels up</span><span>·</span>
+    <span>settled on arrival</span><span>·</span><span>no reconciliation</span><span>·</span>
+    <span>attribution fixed on first join</span><span>·</span><span>two levels up</span><span>·</span>
+    <span>settled on arrival</span><span>·</span><span>no reconciliation</span><span>·</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <section class="hero">
+    <h1 class="display">Fan<span class="out">Out</span></h1>
+    <p class="sub">Every contribution splits itself the moment it lands — a cut to whoever referred you, a smaller cut to whoever referred them.</p>
+    <div class="words">
+      <button class="word" id="btn-connect">Connect</button>
+      <button class="word sm" id="btn-refresh">Reload</button>
+      <button class="word sm" id="btn-copy">Copy your link</button>
+    </div>
+  </section>
+
+  <div class="status">
+    <i>Net <b id="s-net">—</b></i>
+    <i>Acct <b id="s-acct">not connected</b></i>
+    <i>Contract <b id="s-ctr">not set</b></i>
+    <i class="live">Campaigns <b id="s-count">—</b></i>
+    <i class="live">Locked <b id="s-locked">—</b></i>
+    <i>Protocol <b id="s-fee">—</b></i>
+  </div>
+
+  <div class="rows" id="rows"><div class="nothing">No campaigns yet</div></div>
+
+  <section class="create">
+    <h2 class="display">Open one</h2>
+    <p>You set both rates. Level two can never exceed level one, and the two together are capped at 40%. Unearned commission stays with the campaign, never with us.</p>
+    <div class="fieldrow">
+      <div class="field" style="flex:1 1 260px">
+        <label for="f-name">Campaign name</label>
+        <input class="inlinein" id="f-name" maxlength="56" placeholder="Pathfinder" style="width:100%" />
+      </div>
+      <div class="field">
+        <label for="f-l1">Level 1 %</label>
+        <input class="inlinein" id="f-l1" type="number" min="0" max="40" step="0.5" value="10" />
+      </div>
+      <div class="field">
+        <label for="f-l2">Level 2 %</label>
+        <input class="inlinein" id="f-l2" type="number" min="0" max="40" step="0.5" value="5" />
+      </div>
+      <div class="field">
+        <label for="f-min">Minimum BOT</label>
+        <input class="inlinein" id="f-min" type="number" min="0.0001" step="0.01" value="0.1" />
+      </div>
+      <button class="word acid" id="btn-create">Create →</button>
+    </div>
+  </section>
+</div>
+
+<div class="marquee rev">
+  <div class="track">
+    <span>pull-based commission</span><span>·</span><span>nobody is re-attributed later</span><span>·</span>
+    <span>built on bot chain</span><span>·</span>
+    <span>pull-based commission</span><span>·</span><span>nobody is re-attributed later</span><span>·</span>
+    <span>built on bot chain</span><span>·</span>
+  </div>
+</div>
+
+
+<!-- ===== BOT Chain ecosystem footer (KPI 5) ===== -->
+<footer class="bc-foot">
+  <div class="bc-foot-grid">
+    <div class="bc-logo" aria-hidden="true"><svg viewBox="0 0 63.63 100" xmlns="http://www.w3.org/2000/svg" style="width:22px;height:35px;display:block"><path fill="#00A67E" d="M31.67 99.95 L0 82.48 L0.11 63.74 L47.01 90.60 L47.01 73.19 L15.98 55.32 L15.95 36.49 L46.92 53.57 L47.39 36.82 L15.96 17.81 L16.26 0 L63.06 27.02 L62.82 46.20 L47.86 54.67 L62.85 63.00 L63.62 81.42 Z"/></svg></div>
+    <div class="bc-id">BOT Chain<small>Part of the ecosystem</small></div>
+    <div class="bc-links">
+      <a href="https://botchain.ai" target="_blank" rel="noopener noreferrer">botchain.ai</a>
+      <a id="bc-explorer" href="https://scan.botchain.ai" target="_blank" rel="noopener noreferrer">Explorer</a>
+    </div>
+  </div>
+  <div class="bc-meta">
+    <span>&copy; 2026 <b>BOT Chain</b> &mdash; EVM-compatible Layer 1</span>
+  </div>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================================
+   CONTRACT + NETWORK CONFIG
+
+   Paste the deployed address below. Defaults to BOT Chain TESTNET.
+
+   TESTNET -> MAINNET: swap these five values together, never some of them.
+     CONTRACT_ADDRESS  -> the mainnet address
+     chainId           -> "0x2A5"
+     chainName         -> "BOT Chain"
+     rpcUrls           -> ["https://rpc.botchain.ai"]
+     blockExplorerUrls -> ["https://scan.botchain.ai"]
+   ...and set label -> "MAINNET" so the badge reads correctly.
+   ========================================================================== */
+const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+const NETWORK = {
+  chainId: "0x3C8",                              // 968 testnet  | mainnet: "0x2A5"
+  chainIdDec: 968,                               // reference only, not shown on the page | mainnet: 677
+  chainName: "BOT Chain Testnet",                //              | mainnet: "BOT Chain"
+  rpcUrls: ["https://rpc.bohr.life"],            //              | mainnet: ["https://rpc.botchain.ai"]
+  blockExplorerUrls: ["https://scan.bohr.life"], //              | mainnet: ["https://scan.botchain.ai"]
+  nativeCurrency: { name: "BOT", symbol: "BOT", decimals: 18 },
+  label: "TESTNET"                               //              | mainnet: "MAINNET"
+};
+
+const ABI = [
+  "function createCampaign(string name, uint16 l1Bps, uint16 l2Bps, uint256 minContribution) returns (uint256)",
+  "function setOpen(uint256 id, bool open)",
+  "function join(uint256 id, address referrer) payable",
+  "function withdrawEarnings(uint256 id)",
+  "function withdrawVault(uint256 id)",
+  "function campaignCount() view returns (uint256)",
+  "function getCampaign(uint256 id) view returns (tuple(address owner,uint256 vault,uint16 l1Bps,uint16 l2Bps,uint256 minContribution,bool open,uint32 participants,uint256 totalIn,string name))",
+  "function referrerOf(uint256 id, address who) view returns (address)",
+  "function earnedBy(uint256 id, address who) view returns (uint256)",
+  "function contributedBy(uint256 id, address who) view returns (uint256)",
+  "function hasJoined(uint256 id, address who) view returns (bool)",
+  "function directReferrals(uint256 id, address who) view returns (address[])",
+  "function uplineOf(uint256 id, address who) view returns (address l1, address l2)",
+  "function getRecent(uint256 limit) view returns (uint256[])",
+  "function lockedTotal() view returns (uint256)",
+  "function feeBps() view returns (uint16)"
+];
+
+const ZERO = "0x0000000000000000000000000000000000000000";
+const $ = (id) => document.getElementById(id);
+let provider, signer, account, contract, readContract;
+let boards = [];
+const refParam = new URLSearchParams(location.search).get("ref");
+
+function toast(msg, bad) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "show" + (bad ? " bad" : "");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => (t.className = ""), 4400);
+}
+const short = (a) => (a && a !== ZERO ? a.slice(0, 6) + "…" + a.slice(-4) : "none");
+const fmt = (wei) => {
+  const n = Number(ethers.formatEther(wei));
+  return (n >= 1 ? n.toFixed(3) : n.toFixed(4)).replace(/0+$/, "").replace(/\.$/, "");
+};
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function reason(e) {
+  const m = (e && (e.shortMessage || e.reason || e.message)) || "Transaction failed";
+  return String(m).replace(/^execution reverted:?\s*/i, "").slice(0, 150);
+}
+
+/* ---------------------------------------------------------------- wallet */
+function readOnly() {
+  try {
+    const p = new ethers.JsonRpcProvider(NETWORK.rpcUrls[0]);
+    readContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, p);
+  } catch (e) { /* no read-only view */ }
+}
+async function connect() {
+  if (!window.ethereum) { toast("No wallet found", true); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    await ensureChain();
+    signer = await provider.getSigner();
+    account = await signer.getAddress();
+    contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    $("s-acct").textContent = short(account);
+    $("btn-connect").textContent = "Connected";
+    await load();
+  } catch (e) { toast(reason(e), true); }
+}
+async function ensureChain() {
+  const current = await window.ethereum.request({ method: "eth_chainId" });
+  if (current.toLowerCase() === NETWORK.chainId.toLowerCase()) return;
+  try {
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: NETWORK.chainId }] });
+  } catch (err) {
+    if (err.code === 4902) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: NETWORK.chainId, chainName: NETWORK.chainName, rpcUrls: NETWORK.rpcUrls,
+          blockExplorerUrls: NETWORK.blockExplorerUrls, nativeCurrency: NETWORK.nativeCurrency
+        }]
+      });
+    } else throw err;
+  }
+}
+
+/* ------------------------------------------------------------------ load */
+async function load() {
+  const c = contract || readContract;
+  if (!c || CONTRACT_ADDRESS === ZERO) { render(); return; }
+  try {
+    const [n, locked, fee] = await Promise.all([c.campaignCount(), c.lockedTotal(), c.feeBps()]);
+    $("s-count").textContent = n.toString();
+    $("s-locked").textContent = fmt(locked) + " BOT";
+    $("s-fee").textContent = (Number(fee) / 100) + "%";
+
+    const ids = await c.getRecent(10n);
+    boards = [];
+    for (const id of ids) {
+      const cam = await c.getCampaign(id);
+      let me = null;
+      if (account) {
+        const up = await c.uplineOf(id, account);
+        me = {
+          joined: await c.hasJoined(id, account),
+          earned: await c.earnedBy(id, account),
+          given: await c.contributedBy(id, account),
+          l1: up.l1, l2: up.l2,
+          kids: await c.directReferrals(id, account)
+        };
+      }
+      boards.push({ id, cam, me });
+    }
+    render();
+  } catch (e) {
+    toast("Could not read the contract", true);
+  }
+}
+
+/* ---------------------------------------------------------------- render */
+function render() {
+  const el = $("rows");
+  if (CONTRACT_ADDRESS === ZERO) {
+    el.innerHTML = '<div class="nothing">No contract address set — deploy FanOut and paste it into CONTRACT_ADDRESS in this file</div>';
+    return;
+  }
+  if (!boards.length) { el.innerHTML = '<div class="nothing">No campaigns yet</div>'; return; }
+
+  el.innerHTML = boards.map(({ id, cam, me }) => {
+    const isOwner = account && cam.owner.toLowerCase() === account.toLowerCase();
+    const refValue = me && me.joined && me.l1 !== ZERO ? me.l1 : (refParam || "");
+
+    const chain = me
+      ? '<span class="hop">' + short(me.l2) + '</span><span class="arr">→</span>' +
+        '<span class="hop">' + short(me.l1) + '</span><span class="arr">→</span>' +
+        '<span class="hop you">you</span>' +
+        (me.kids.length
+          ? '<span class="arr">→</span>' + me.kids.slice(0, 6).map((k) => '<span class="hop">' + short(k) + "</span>").join('<span class="arr">·</span>')
+          : '<span class="arr">→</span><span class="hop">nobody yet</span>')
+      : '<span class="hop">connect to see your position in the net</span>';
+
+    let acts = "";
+    if (!isOwner) {
+      acts += '<input class="inlinein ref-in" data-id="' + id + '" placeholder="referrer" value="' +
+                esc(refValue === ZERO ? "" : refValue) + '" />' +
+              '<input class="inlinein amt-in" data-id="' + id + '" type="number" step="0.01" min="0" placeholder="BOT" style="width:clamp(90px,10vw,130px)" />' +
+              '<button class="word sm acid" data-join="' + id + '">' + (me && me.joined ? "Contribute →" : "Join →") + "</button>";
+    }
+    if (me && me.earned > 0n) acts += '<button class="word sm" data-earn="' + id + '">Take ' + fmt(me.earned) + " BOT</button>";
+    if (isOwner) {
+      acts += '<button class="word sm" data-vault="' + id + '">Draw vault ' + fmt(cam.vault) + "</button>";
+      acts += '<button class="word sm" data-open="' + id + '" data-to="' + (cam.open ? "0" : "1") + '">' +
+              (cam.open ? "Close" : "Reopen") + "</button>";
+    }
+
+    return '<article class="row">' +
+      '<h3 class="display name">' + esc(cam.name) + (cam.open ? "" : ' <span>closed</span>') + "</h3>" +
+      '<div class="meta">' +
+        "<em>By <b>" + short(cam.owner) + "</b></em>" +
+        "<em>Participants <b>" + cam.participants + "</b></em>" +
+        "<em>Total in <b>" + fmt(cam.totalIn) + " BOT</b></em>" +
+        "<em>Minimum <b>" + fmt(cam.minContribution) + "</b></em>" +
+        "<em>You earned <b>" + (me ? fmt(me.earned) : "—") + "</b></em>" +
+      "</div>" +
+      '<div class="levels">' +
+        '<div class="lv one"><b>' + (Number(cam.l1Bps) / 100) + "%</b><span>to who referred you</span></div>" +
+        '<div class="lv two"><b>' + (Number(cam.l2Bps) / 100) + "%</b><span>to who referred them</span></div>" +
+        '<div class="lv rest"><b>' + ((10000 - Number(cam.l1Bps) - Number(cam.l2Bps)) / 100) +
+          "%</b><span>stays with the campaign</span></div>" +
+      "</div>" +
+      '<div class="chain">' + chain + "</div>" +
+      (acts ? '<div class="rowacts">' + acts + "</div>" : "") +
+    "</article>";
+  }).join("");
+}
+
+/* --------------------------------------------------------------- actions */
+async function send(label, fn) {
+  if (!contract) { toast("Connect a wallet first", true); return; }
+  try {
+    toast(label + "…");
+    const tx = await fn();
+    await tx.wait();
+    toast(label + " confirmed");
+    await load();
+  } catch (e) { toast(reason(e), true); }
+}
+
+$("btn-create").onclick = () => {
+  const name = $("f-name").value.trim();
+  const l1 = Math.round(Number($("f-l1").value) * 100);
+  const l2 = Math.round(Number($("f-l2").value) * 100);
+  const min = $("f-min").value;
+  if (!name) { toast("Name the campaign", true); return; }
+  if (l1 + l2 > 4000) { toast("The two levels together cannot exceed 40%", true); return; }
+  if (l2 > l1) { toast("Level 2 cannot be larger than level 1", true); return; }
+  if (!(Number(min) > 0)) { toast("Set a minimum above zero", true); return; }
+  send("Creating campaign", () => contract.createCampaign(name, l1, l2, ethers.parseEther(min)));
+};
+
+$("btn-copy").onclick = async () => {
+  if (!account) { toast("Connect a wallet first", true); return; }
+  const link = location.origin + location.pathname + "?ref=" + account;
+  try { await navigator.clipboard.writeText(link); toast("Referral link copied"); }
+  catch (e) { toast(link, false); }
+};
+
+$("rows").addEventListener("click", (ev) => {
+  const j = ev.target.closest("button[data-join]");
+  if (j) {
+    const id = j.dataset.join;
+    const ref = (document.querySelector('.ref-in[data-id="' + id + '"]').value || "").trim();
+    const amt = (document.querySelector('.amt-in[data-id="' + id + '"]').value || "").trim();
+    if (!(Number(amt) > 0)) { toast("Enter an amount", true); return; }
+    if (ref && !ethers.isAddress(ref)) { toast("That referrer address is not valid", true); return; }
+    return send("Joining", () => contract.join(id, ref || ethers.ZeroAddress, { value: ethers.parseEther(amt) }));
+  }
+  const e = ev.target.closest("button[data-earn]");
+  if (e) return send("Withdrawing earnings", () => contract.withdrawEarnings(e.dataset.earn));
+  const v = ev.target.closest("button[data-vault]");
+  if (v) return send("Drawing vault", () => contract.withdrawVault(v.dataset.vault));
+  const o = ev.target.closest("button[data-open]");
+  if (o) return send("Updating campaign", () => contract.setOpen(o.dataset.open, o.dataset.to === "1"));
+});
+
+$("btn-connect").onclick = connect;
+$("btn-refresh").onclick = load;
+
+/* ------------------------------------------------------------------ boot */
+$("s-net").textContent = NETWORK.chainName + " " + NETWORK.label;
+if (CONTRACT_ADDRESS !== ZERO) $("s-ctr").textContent = short(CONTRACT_ADDRESS);
+if (refParam && ethers.isAddress(refParam)) toast("Referral link detected — " + short(refParam));
+if (window.ethereum) {
+  window.ethereum.on("accountsChanged", () => location.reload());
+  window.ethereum.on("chainChanged", () => location.reload());
+}
+readOnly();
+load();
+
+/* ---- BOT Chain ecosystem footer: follows the NETWORK config above ---- */
+(function () {
+  var ex = document.getElementById("bc-explorer");
+  if (ex) ex.href = NETWORK.blockExplorerUrls[0];
+})();
+</script>
+</body>
+</html>
